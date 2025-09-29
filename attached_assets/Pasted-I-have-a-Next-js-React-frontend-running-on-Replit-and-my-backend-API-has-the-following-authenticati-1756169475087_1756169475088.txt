@@ -1,0 +1,35 @@
+I have a Next.js React frontend running on Replit, and my backend API has the following authentication endpoints:
+
+- POST /auth/login → expects { "username": "...", "password": "..." } and returns a JWT token
+- POST /auth/register → expects { "username": "...", "password": "...", "email": "..." }
+- GET /auth/protected → requires JWT token in Authorization header
+
+Currently, my login page (/pages/login.js) does not run and gives this error:
+
+"The default export is not a React Component in page: '/login'"
+
+Also, the login form previously caused "Runtime TypeError: Failed to fetch" because of incorrect fetch handling.
+
+Please professionally refactor and fix the authentication pages with the following requirements:
+
+1. /pages/login.js and /pages/register.js must **export default React functional components** compatible with Next.js.
+2. Login form should:
+   - Validate inputs (username, password) on client-side
+   - Send correct JSON payload to POST /auth/login
+   - Handle network, HTTP, and JSON parsing errors
+   - Show loading states and user-friendly error messages
+   - Store JWT token securely (localStorage/sessionStorage)
+   - Redirect to a protected page (e.g., /dashboard) on success
+3. Register form should:
+   - Validate inputs (username, password, email, password confirmation)
+   - Send correct JSON payload to POST /auth/register
+   - Show success or error messages
+   - Redirect to /login after successful registration
+4. Protected routes should check for JWT token and redirect unauthenticated users to /login
+5. The API service should automatically include the stored token in Authorization headers for protected endpoints
+6. Ensure compatibility with Replit (consider HTTP/HTTPS mixed content and CORS issues)
+7. Use professional React practices (functional components, hooks like useState and useEffect)
+8. Include clean UI and user-friendly messages for all states (loading, error, success)
+9. Act like a senior React developer and deliver production-ready, fully functional authentication pages
+
+Refactor all existing code so the frontend works correctly with the backend authentication API and the app runs without runtime errors.

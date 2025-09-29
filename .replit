@@ -1,0 +1,43 @@
+entrypoint = "index.js"
+modules = ["nodejs-22"]
+hidden = [".config", "package-lock.json"]
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix", "package.json", "package-lock.json"]
+
+[nix]
+channel = "stable-24_11"
+
+[deployment]
+run = ["sh", "-c", "npm start"]
+deploymentTarget = "autoscale"
+ignorePorts = false
+build = ["sh", "-c", "npm run build"]
+
+# Configure environment variables for production
+[[deployment.env]]
+name = "NODE_ENV"
+value = "production"
+
+[workflows]
+runButton = "Next.js Dev Server"
+
+[[workflows.workflow]]
+name = "Next.js Dev Server"
+author = 44344250
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[agent]
+expertMode = true

@@ -1,0 +1,30 @@
+{
+  "name": "bourse-analysis-app",
+  "version": "1.0.0",
+  "description": "Modern stock market analysis web application",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [
+    "nextjs",
+    "stock-analysis",
+    "react"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@types/node": "^22.13.11",
+    "axios": "^1.11.0",
+    "lucide-react": "^0.541.0",
+    "next": "^15.5.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-sparklines": "^1.7.0",
+    "recharts": "^3.1.2"
+  }
+}

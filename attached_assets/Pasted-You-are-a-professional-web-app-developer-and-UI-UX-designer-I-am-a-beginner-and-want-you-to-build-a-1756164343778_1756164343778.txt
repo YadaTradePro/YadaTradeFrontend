@@ -1,0 +1,38 @@
+You are a professional web app developer and UI/UX designer. I am a beginner and want you to build a modern web application for stock market analysis from scratch using **Next.js**.
+
+### Objectives:
+1. Create a web app with a **purple-light and white modern theme**.
+2. The app should have the following main navigation tabs (bottom navigation bar):
+   - Home (center)
+   - Weekly Watchlist (right)
+   - Potential Buy Queues (right)
+   - Golden Key (left)
+   - Others (left; dropdown menu: app performance, stock review, settings, user profile)
+3. Each tab should fetch data from the corresponding API endpoints listed below.
+4. The frontend should be modular: components for each box, table, chart, and section, not a single huge script.js file.
+5. Use Next.js pages and components properly, use React hooks (useState, useEffect), and keep the code clean, readable, and maintainable.
+
+### Frontend Data & API Map:
+**Home (Dashboard)** – API: `/market-overview/`  
+Display in separate boxes:
+- Total Index & Equal-Weighted Index with percentage changes
+- Global commodities (gold, silver, platinum, copper)
+- Gold prices (TGJUData)
+- Gold funds: Ayar, Mesghal, Gohar, Lotus
+
+**Weekly Watchlist** – API: `/weekly_watchlist/results`  
+- Show top weekly stocks, entry/exit price, probability %, outlook, reason
+
+**Golden Key** – API: `/golden_key/results`  
+- Show top stocks, total score, satisfied technical filters, weekly growth
+
+**Potential Buy Queues** – API: `/potential_queues/results`  
+- Show top queues, matched filters, real buyer power ratio, volume changes
+
+**Others Dropdown**:
+- App Performance – API: `/performance/aggregated` and `/performance/signals-details`
+- Stock Review – Allow input stock symbol → fetch `/analysis/fundamental_data/{symbol}` and `/analysis/analyze_technical_indicators/{symbol}`
+- Settings – user can update preferences via `/settings/`
+- User Profile – fetch user info `/auth/protected`
+
+### Project Folder Structure (Next.js):
