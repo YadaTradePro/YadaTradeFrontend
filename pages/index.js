@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -12,6 +11,10 @@ import {
   ArrowTrendingUpIcon,
   Cog6ToothIcon 
 } from '@heroicons/react/24/outline';
+import { 
+  formatNumber, 
+  normalizeChangePercent 
+} from '../utils/formatters'; // (1) Import formatters
 
 export default function HomePage() {
   const { isAuth, isLoading: authLoading } = useAuth();
@@ -90,7 +93,7 @@ export default function HomePage() {
   const indicesItems = marketData?.indices || [];
   const globalCommodities = marketData?.global_commodities || {};
 
-    // Transform global commodities to array format without filtering
+    // Transform global commodities to array format
     const globalCommoditiesArray = Object.entries(globalCommodities).map(([key, value]) => {
       const titleMap = {
         gold: 'طلای جهانی (اونس)',
@@ -100,11 +103,18 @@ export default function HomePage() {
       };
       return {
         title: titleMap[key] || key,
-        // Provide a fallback string if the price value is null or undefined
-        price: value !== null && value !== undefined ? value : 'بدون داده',
-        change_percent: null
+        price: value?.value !== null && value?.value !== undefined ? new Intl.NumberFormat('fa-IR-u-nu-latn', { maximumFractionDigits: 4 }).format(value.value): 'بدون داده',
+        change_percent: normalizeChangePercent(null)
       };
     });
+
+
+    const lastUpdateString = marketData?._lastUpdate 
+    ? new Intl.DateTimeFormat('fa-IR-u-nu-latn', { 
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false 
+      }).format(new Date(marketData._lastUpdate))
+    : '';
 
     return (
       <>
@@ -205,6 +215,19 @@ export default function HomePage() {
               })}
             </div>
           </section>
+
+
+        <p className="section-subtitle">
+          {lastUpdateString && (
+            <span style={{ marginRight: "22px", color: "gray", fontSize: "22px" }}>
+                آخرین بروزرسانی: {lastUpdateString}
+            </span>
+          )}
+        </p>
+
+
+
+
           {/* Global Commodities Section */}
           {/* The section is now always rendered as the array won't be empty due to null prices */}
           {globalCommoditiesArray.length > 0 && (
@@ -222,120 +245,120 @@ export default function HomePage() {
                   <MarketCard
                     key={index}
                     title={item.title}
-                    value={item.price}
+                    value={item.price} // Already formatted or 'بدون داده'
                     change={null}
                   />
                 ))}
               </div>
             </section>
-        )}
+          )}
 
-        {/* Market Indices Section */}
-        {indicesItems.length > 0 && (
-          <section className="section">
-            <div className="section-header">
-              <div>
-                <h2 className="section-title">
-                  📊 شاخص‌های بورس ایران
-                </h2>
-                <p className="section-subtitle">شاخص‌های کلان بازار سرمایه</p>
+          {/* Market Indices Section */}
+          {indicesItems.length > 0 && (
+            <section className="section">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">
+                    📊 شاخص‌های بورس ایران
+                  </h2>
+                  <p className="section-subtitle">شاخص‌های کلان بازار سرمایه</p>
+                </div>
               </div>
-            </div>
-            <div className="grid-4">
-              {indicesItems.map((item, index) => (
-                <MarketCard
-                  key={index}
-                  title={item.title}
-                  value={item.value}
-                  change={item.percent}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Gold Section */}
-        {goldItems.length > 0 && (
-          <section className="section">
-            <div className="section-header">
-              <div>
-                <h2 className="section-title">
-                  🏆 قیمت طلا
-                </h2>
-                <p className="section-subtitle">قیمت طلا در بازار داخلی</p>
+              <div className="grid-4">
+                {indicesItems.map((item, index) => (
+                  <MarketCard
+                    key={index}
+                    title={item.title}
+                    value={formatNumber(item.value)} // (3) Use formatNumber
+                    change={normalizeChangePercent(item.percent)} // (3) Use normalizeChangePercent
+                  />
+                ))}
               </div>
-            </div>
-            <div className="grid-2">
-              {goldItems.map((item, index) => (
-                <MarketCard
-                  key={index}
-                  title={item.title}
-                  value={item.price}
-                  change={item.change_percent}
-                  historyData={item.history}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+            </section>
+          )}
 
-        {/* Coins Section */}
-        {coinItems.length > 0 && (
-          <section className="section">
-            <div className="section-header">
-              <div>
-                <h2 className="section-title">
-                  🪙 قیمت سکه
-                </h2>
-                <p className="section-subtitle">قیمت انواع سکه طلا</p>
+          {/* Gold Section */}
+          {goldItems.length > 0 && (
+            <section className="section">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">
+                    🏆 قیمت طلا
+                  </h2>
+                  <p className="section-subtitle">قیمت طلا در بازار داخلی</p>
+                </div>
               </div>
-            </div>
-            <div className="grid-4">
-              {coinItems.map((item, index) => (
-                <MarketCard
-                  key={index}
-                  title={item.title}
-                  value={item.price}
-                  change={item.change_percent}
-                  historyData={item.history}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ETF Funds Section */}
-        {fundsItems.length > 0 && (
-          <section className="section">
-            <div className="section-header">
-              <div>
-                <h2 className="section-title">
-                  💎 صندوق‌های طلا
-                </h2>
-                <p className="section-subtitle">صندوق‌های قابل معامله در بورس</p>
+              <div className="grid-2">
+                {goldItems.map((item, index) => (
+                  <MarketCard
+                    key={index}
+                    title={item.title}
+                    value={formatNumber(item.price)} // (3) Use formatNumber
+                    change={normalizeChangePercent(item.change_percent)} // (3) Use normalizeChangePercent
+                    historyData={item.history}
+                  />
+                ))}
               </div>
-            </div>
-            <div className="grid-4">
-              {fundsItems.map((item, index) => (
-                <MarketCard
-                  key={index}
-                  title={item.displayName || item.title}
-                  value={item.price}
-                  change={item.change_percent}
-                  historyData={item.history}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+            </section>
+          )}
 
-        {/* Empty State */}
-        {!goldItems.length && !coinItems.length && !fundsItems.length && !indicesItems.length && (
-          <div className="empty-state">
-            <p>داده‌ای برای نمایش وجود ندارد</p>
-          </div>
-        )}
-      </div>
-    </>
-  );
+          {/* Coins Section */}
+          {coinItems.length > 0 && (
+            <section className="section">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">
+                    🪙 قیمت سکه
+                  </h2>
+                  <p className="section-subtitle">قیمت انواع سکه طلا</p>
+                </div>
+              </div>
+              <div className="grid-4">
+                {coinItems.map((item, index) => (
+                  <MarketCard
+                    key={index}
+                    title={item.title}
+                    value={formatNumber(item.price)} // (3) Use formatNumber
+                    change={normalizeChangePercent(item.change_percent)} // (3) Use normalizeChangePercent
+                    historyData={item.history}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ETF Funds Section */}
+          {fundsItems.length > 0 && (
+            <section className="section">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">
+                    💎 صندوق‌های طلا
+                  </h2>
+                  <p className="section-subtitle">صندوق‌های قابل معامله در بورس</p>
+                </div>
+              </div>
+              <div className="grid-4">
+                {fundsItems.map((item, index) => (
+                  <MarketCard
+                    key={index}
+                    title={item.displayName || item.title}
+                    value={formatNumber(item.price)} // (3) Use formatNumber
+                    change={normalizeChangePercent(item.change_percent)} // (3) Use normalizeChangePercent
+                    historyData={item.history}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Empty State */}
+          {!goldItems.length && !coinItems.length && !fundsItems.length && !indicesItems.length && (
+            <div className="empty-state">
+              <p>داده‌ای برای نمایش وجود ندارد</p>
+            </div>
+          )}
+        </div>
+      </>
+    );
 }

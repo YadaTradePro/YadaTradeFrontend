@@ -1,6 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { fetchMarketOverview } from '../services/api';
+import { 
+  formatNumber, 
+  formatPercent, 
+  getChangeColor 
+} from '../utils/formatters'; // (1) Import formatters
 
 const MarketOverviewCard = () => {
   const [data, setData] = useState(null);
@@ -59,22 +63,8 @@ const MarketOverviewCard = () => {
       </div>
     );
   }
-
-  const formatNumber = (value) => {
-    if (!value && value !== 0) return 'N/A';
-    return new Intl.NumberFormat('en-US').format(value);
-  };
-
-  const formatPercent = (value) => {
-    if (!value && value !== 0) return 'N/A';
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
-  };
-
-  const getChangeColor = (value) => {
-    if (!value && value !== 0) return '#6b7280';
-    return value >= 0 ? '#10b981' : '#ef4444';
-  };
+  
+  // (2) Removed formatNumber, formatPercent, getChangeColor functions
 
   return (
     <div className="card">
@@ -87,11 +77,11 @@ const MarketOverviewCard = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             {data.indices.map((index, idx) => (
               <div key={idx} style={{ padding: '1rem', background: '#f8f9ff', borderRadius: '8px' }}>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>{index.name}</p>
-                <p style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-                  {formatNumber(index.price)}
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>{index.title || index.name}</p>
+                <p className="english-numbers" style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.25rem' }}>
+                  {formatNumber(index.value || index.price)}
                 </p>
-                <p style={{ fontSize: '0.875rem', color: getChangeColor(index.percent) }}>
+                <p className="english-numbers" style={{ fontSize: '0.875rem', color: getChangeColor(index.percent) }}>
                   {formatPercent(index.percent)}
                 </p>
               </div>
@@ -105,16 +95,17 @@ const MarketOverviewCard = () => {
         <div style={{ marginBottom: '1.5rem' }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#374151' }}>Gold Prices</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-            {Object.entries(data.gold).map(([goldType, info]) => (
-              <div key={goldType} style={{ padding: '1rem', background: '#fef7e0', borderRadius: '8px' }}>
+            {/* Assuming gold items in overview are an array now, but keeping the map over object entries for robustness based on the original data structure */}
+            {data.gold.map((info, idx) => (
+              <div key={idx} style={{ padding: '1rem', background: '#fef7e0', borderRadius: '8px' }}>
                 <p style={{ fontSize: '0.875rem', color: '#92400e', marginBottom: '0.5rem' }}>
-                  {info.name || goldType}
+                  {info.title || info.name}
                 </p>
-                <p style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-                  {formatNumber(info.value)}
+                <p className="english-numbers" style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
+                  {formatNumber(info.price || info.value)}
                 </p>
-                <p style={{ fontSize: '0.875rem', color: getChangeColor(info.percent) }}>
-                  {formatPercent(info.percent)}
+                <p className="english-numbers" style={{ fontSize: '0.875rem', color: getChangeColor(info.change_percent || info.percent) }}>
+                  {formatPercent(info.change_percent || info.percent)}
                 </p>
               </div>
             ))}
@@ -122,7 +113,7 @@ const MarketOverviewCard = () => {
         </div>
       )}
 
-      {/* Forex Section */}
+      {/* Forex Section - The original code used Object.entries for gold, but an array for forex. Assuming the array structure for forex/funds is still in use. */}
       {data?.forex && data.forex.length > 0 && (
         <div style={{ marginBottom: '1.5rem' }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#374151' }}>Foreign Exchange</h3>
@@ -132,10 +123,10 @@ const MarketOverviewCard = () => {
                 <p style={{ fontSize: '0.875rem', color: '#065f46', marginBottom: '0.5rem' }}>
                   {currency.name}
                 </p>
-                <p style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
+                <p className="english-numbers" style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
                   {formatNumber(currency.value)}
                 </p>
-                <p style={{ fontSize: '0.875rem', color: getChangeColor(currency.percent) }}>
+                <p className="english-numbers" style={{ fontSize: '0.875rem', color: getChangeColor(currency.percent) }}>
                   {formatPercent(currency.percent)}
                 </p>
               </div>
@@ -154,10 +145,10 @@ const MarketOverviewCard = () => {
                 <p style={{ fontSize: '0.875rem', color: '#0c4a6e', marginBottom: '0.5rem' }}>
                   {fund.name}
                 </p>
-                <p style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
+                <p className="english-numbers" style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
                   {formatNumber(fund.value)}
                 </p>
-                <p style={{ fontSize: '0.875rem', color: getChangeColor(fund.percent) }}>
+                <p className="english-numbers" style={{ fontSize: '0.875rem', color: getChangeColor(fund.percent) }}>
                   {formatPercent(fund.percent)}
                 </p>
               </div>

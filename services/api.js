@@ -6,23 +6,46 @@ const BASE_URL = 'http://127.0.0.1:5000/api';
 // 📝 تغییر کلیدی: متغیر در سطح ماژول برای نگهداری توکن احراز هویت
 let authToken = typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')) : null;
 
-// Cache management system
+// ==========================================================
+// 📦 Cache Management System
+// ==========================================================
+
+// ✅ تعریف کلیدهای کش
 const CACHE_KEYS = {
     MARKET_OVERVIEW: 'market_overview',
     WEEKLY_WATCHLIST: 'weekly_watchlist',
     GOLDEN_KEY: 'golden_key',
     POTENTIAL_QUEUES: 'potential_queues',
     APP_PERFORMANCE: 'app_performance',
-    ML_PREDICTIONS: 'ml_predictions', // ✅ NEW CACHE KEY: برای پیش‌بینی‌های ML
-    MARKET_SUMMARY: 'market_summary'  // ✅ کلید جدید برای خلاصه بازار
+    ML_PREDICTIONS: 'ml_predictions', // ✅ پیش‌بینی‌های ML
+    MARKET_SUMMARY: 'market_summary'  // ✅ خلاصه بازار
 };
 
+// ✅ تعریف مدت زمان اعتبار کش
 const CACHE_DURATIONS = {
-    HOME_DATA: 2 * 60 * 60 * 1000, // 2 hours for home page data
-    OTHER_DATA: 6 * 60 * 60 * 1000  // 6 hours for other pages
+    HOME_DATA: 1 * 60 * 60 * 1000, // 1h
+    OTHER_DATA: 2 * 60 * 60 * 1000  // 2h
 };
 
-// Cache utility functions
+// ✅ نگاشت کلیدها به TTL
+const getCacheDurationByKey = (key) => {
+    const durations = {
+        [CACHE_KEYS.MARKET_OVERVIEW]: CACHE_DURATIONS.HOME_DATA,
+        [CACHE_KEYS.MARKET_SUMMARY]: CACHE_DURATIONS.OTHER_DATA,
+        [CACHE_KEYS.WEEKLY_WATCHLIST]: CACHE_DURATIONS.OTHER_DATA,
+        [CACHE_KEYS.GOLDEN_KEY]: CACHE_DURATIONS.OTHER_DATA,
+        [CACHE_KEYS.POTENTIAL_QUEUES]: CACHE_DURATIONS.OTHER_DATA,
+        [CACHE_KEYS.APP_PERFORMANCE]: CACHE_DURATIONS.OTHER_DATA,
+        [CACHE_KEYS.ML_PREDICTIONS]: CACHE_DURATIONS.OTHER_DATA
+    };
+
+    // اگر کلید تعریف نشده بود → پیش‌فرض 2h
+    return durations[key] || CACHE_DURATIONS.OTHER_DATA;
+};
+
+// ==========================================================
+// 🔧 توابع کمکی کش
+// ==========================================================
 const getCacheKey = (key) => `api_cache_${key}`;
 const getTimestampKey = (key) => `api_timestamp_${key}`;
 
@@ -38,7 +61,7 @@ const setCache = (key, data) => {
 
             console.log(`📦 Cached data for ${key} at ${new Date(timestamp).toLocaleString()}`);
         } catch (error) {
-            console.warn('Failed to cache data:', error);
+            console.warn('⚠️ Failed to cache data:', error);
         }
     }
 };
@@ -55,26 +78,28 @@ const getCache = (key) => {
             if (cachedData && timestamp) {
                 return {
                     data: JSON.parse(cachedData),
-                    timestamp: parseInt(timestamp),
-                    lastUpdate: new Date(parseInt(timestamp))
+                    timestamp: parseInt(timestamp, 10),
+                    lastUpdate: new Date(parseInt(timestamp, 10))
                 };
             }
         } catch (error) {
-            console.warn('Failed to retrieve cached data:', error);
+            console.warn('⚠️ Failed to retrieve cached data:', error);
         }
     }
     return null;
 };
 
-const isCacheValid = (key, isHomeData = false) => {
+// ✅ نسخه اصلاح‌شده isCacheValid
+const isCacheValid = (key) => {
     const cached = getCache(key);
     if (!cached) return false;
 
-    const maxAge = isHomeData ? CACHE_DURATIONS.HOME_DATA : CACHE_DURATIONS.OTHER_DATA;
+    const maxAge = getCacheDurationByKey(key);
     const age = Date.now() - cached.timestamp;
 
     return age < maxAge;
 };
+
 
 const getCachedDataWithFallback = (key, isHomeData = false) => {
     const cached = getCache(key);
@@ -180,6 +205,73 @@ const makeAPIRequest = async (endpoint, options = {}, overrideToken = null) => {
     }
 };
 
+// توابع کمکی برای پاکسازی و پارس کردن داده‌ها
+// بهتر است این توابع را در ابتدای فایل API.js یا بالاتر از fetchMarketOverview تعریف کنید
+
+/**
+ * پاکسازی یک رشته قیمت دارای کاما و تبدیل آن از ریال به تومان (تقسیم بر 10).
+ * @param {string | number | null} value - مقدار قیمت از بک‌اند (ریال).
+ * @returns {number | null} - قیمت به صورت عدد (تومان) یا null.
+ */
+const cleanAndParse = (value) => {
+    if (typeof value === 'string') {
+        // حذف کاما (,) و فضای خالی
+        const cleaned = value.replace(/,/g, '').replace(/\s/g, ''); 
+
+        // پارس کردن به عدد شناور (float)
+        const parsed = parseFloat(cleaned);
+        
+        // 🚨 تبدیل ریال به تومان (تقسیم بر 10)
+        const toToman = parsed / 10; 
+        
+        // اگر NaN شد، null برگردان (برای جلوگیری از نمایش NaN در فرانت‌اند)
+        return isNaN(parsed) ? null : toToman;
+    }
+    return typeof value === 'number' ? (value / 10) : null; // اگر از ابتدا عدد بود
+};
+
+/**
+ * پارس کردن رشته درصد تغییرات (مانند "(0.53%) 9,200" یا "0") و استخراج درصد.
+ * @param {string | null} value - رشته درصد تغییرات از بک‌اند.
+ * @returns {number | null} - مقدار درصد به صورت عدد یا null.
+ */
+const parseChangePercent = (value) => {
+    if (typeof value === 'string') {
+        // الگو برای استخراج درصد از فرمت "(X.XX%) Y"
+        const match = value.match(/\(([^%]+)%\)/);
+        if (match && match[1]) {
+            const percentValue = parseFloat(match[1]);
+            return isNaN(percentValue) ? null : percentValue;
+        }
+    }
+    // در صورتی که نتوانست درصد را استخراج کند یا مقدار "0" بود.
+    return null;
+};
+
+// ----------------------------------------------------------------------
+
+// helper to normalize/map an item
+const mapItem = (item) => {
+    // استفاده از توابع کمکی برای تبدیل رشته‌ها به عدد
+    const priceValue = cleanAndParse(item?.price);
+    const changeValue = cleanAndParse(item?.change_value);
+    const lastUpdateValue = cleanAndParse(item?.last_update);
+    const percentValue = parseChangePercent(item?.change_percent);
+
+    return {
+        title: item?.title ?? null,
+        price: priceValue, // ✅ قیمت به تومان
+        change_percent: percentValue, // ✅ پارس شده به عدد یا null
+        change_value: changeValue,
+        last_update: lastUpdateValue,
+        key: item?.key ?? null
+    };
+};
+
+// ----------------------------------------------------------------------
+// ✅ نسخه اصلاح‌شده تابع fetchMarketOverview
+// ----------------------------------------------------------------------
+
 // API functions with caching
 export const fetchMarketOverview = async (forceRefresh = false, freshToken = null) => {
     const cacheKey = CACHE_KEYS.MARKET_OVERVIEW;
@@ -204,6 +296,10 @@ export const fetchMarketOverview = async (forceRefresh = false, freshToken = nul
             const tgjuData = data.tgju_data || {};
             const iranIndicesData = data.iran_market_indices || {};
             const globalCommoditiesData = data.global_commodities || {};
+            
+            // 🚨 مشکل ۱: استخراج زمان آخرین به‌روزرسانی از بک‌اند
+            const lastBackendUpdate = data.date || data.iran_market_indices?.Total_Index?.date || new Date().toLocaleDateString('fa-IR');
+
 
             // flatten all tgju items (gold_prices.*.prices + currency_prices)
             const allTgjuItems = [
@@ -211,16 +307,6 @@ export const fetchMarketOverview = async (forceRefresh = false, freshToken = nul
                 ...(tgjuData.currency_prices || []),
                 ...(tgjuData.coin_prices || [])
             ];
-
-            // helper to normalize/map an item
-            const mapItem = (item) => ({
-                title: item?.title ?? null,
-                price: item?.price ?? null,
-                change_percent: item?.change_percent ?? null,
-                change_value: item?.change_value ?? null,
-                last_update: item?.last_update ?? null,
-                key: item?.key ?? null
-            });
 
             // flexible finder: tries key first, then exact title, then substring match
             const findTgjuItem = (idOrTitle) => {
@@ -236,7 +322,12 @@ export const fetchMarketOverview = async (forceRefresh = false, freshToken = nul
             const goldItems = [
                 findTgjuItem('geram18') || findTgjuItem('طلای 18 عیار / 750') || null,
                 findTgjuItem('geram24') || findTgjuItem('طلای ۲۴ عیار') || null
-            ].filter(Boolean);
+            ].filter(Boolean)
+            // 🚨 مشکل ۲: افزودن واحد (IRT) به عنوان
+            .map(item => ({
+                ...item,
+                title: `${item.title} (IRT)`
+            }));
 
             // ✅ بخش دوم: سکه
             const coinItems = [
@@ -244,50 +335,54 @@ export const fetchMarketOverview = async (forceRefresh = false, freshToken = nul
                 findTgjuItem('nim') || findTgjuItem('نیم') || null,
                 findTgjuItem('rob') || findTgjuItem('ربع') || null,
                 findTgjuItem('gerami') || findTgjuItem('گرمی') || null,
-            ].filter(Boolean);
+            ].filter(Boolean)
+            // 🚨 مشکل ۲: افزودن واحد (IRT) به عنوان
+            .map(item => ({
+                ...item,
+                title: `${item.title} (IRT)`
+            }));
 
             // ✅ بخش سوم: صندوق‌ها (فیلتر بر اساس کلید پایدار، با فال‌بک بر اساس نام)
             const fundsSection = (tgjuData.gold_prices || []).find(s => s.title === "طلا در بورس");
             const fundsRaw = fundsSection?.prices || [];
 
-            // مپ پایدار کلیدها به نام‌های دوستانه فارسی
+            // 🛠️ اصلاح شده: رفع مشکل نام 'صندوق طلای جواهر' و بقیه
             const wantedFundsMap = {
               'gc3': "صندوق طلای مفید (عیار)",
               'gc1': "صندوق طلای لوتوس (طلا)",
               'gc35': "صندوق طلای زرین آگاه (مثقال)",
-              'gc38': "صندوق طلای جواهر"
+              'gc55': "صندوق طلای جواهر" 
             };
 
-            // 📝 تغییر در منطق فال‌بک برای انعطاف‌پذیری بیشتر
             const wantedFundKeys = Object.keys(wantedFundsMap);
-            const wantedFundNames = Object.values(wantedFundsMap).map(name => name.split(' ')); // تقسیم به کلمات
+            const wantedFundNames = Object.values(wantedFundsMap).map(name => name.split(' ')); 
 
             const funds = fundsRaw
                 .filter(item => {
-                    // اولویت اول: فیلتر بر اساس کلید پایدار
                     if (wantedFundsMap.hasOwnProperty(item.key)) {
                         return true;
                     }
-                    // فال‌بک انعطاف‌پذیر: اگر کلید پیدا نشد، بررسی کن آیا نام شامل کلمات کلیدی هست یا نه
                     return wantedFundNames.some(wantedNameParts => {
-                      return wantedNameParts.every(part => item.title.includes(part));
+                        return wantedNameParts.every(part => item.title.includes(part));
                     });
                 })
                 .map(item => {
                     const displayName = wantedFundsMap[item.key] || item.title;
                     return {
                         ...mapItem(item),
-                        displayName
+                        title: `${displayName} (IRT)` // 🚨 مشکل ۲: افزودن واحد (IRT) به عنوان
                     };
                 });
 
             // ✅ بخش چهارم: شاخص‌های بورس
+            // 🚨 مشکل ۳: اصلاح نام شاخص‌ها
             const indexTitleMap = {
-                Equal_Weighted_Index: 'شاخص هم وزن',
-                Price_Equal_Weighted_Index: 'شاخص فرابورس',
+                Total_Index: 'شاخص کل', 
+                Equal_Weighted_Index: 'شاخص کل (هم وزن)', 
+                Price_Equal_Weighted_Index: 'شاخص قیمت (هم وزن)', 
                 Industry_Index: 'شاخص صنعت'
             };
-            const desiredIndexKeys = ['Equal_Weighted_Index', 'Price_Equal_Weighted_Index', 'Industry_Index'];
+            const desiredIndexKeys = ['Total_Index', 'Equal_Weighted_Index', 'Price_Equal_Weighted_Index', 'Industry_Index'];
             const indices = desiredIndexKeys.map(k => {
                 const src = iranIndicesData[k] || {};
                 return {
@@ -301,11 +396,13 @@ export const fetchMarketOverview = async (forceRefresh = false, freshToken = nul
             }).filter(Boolean);
 
             // ✅ بخش پنجم: global_commodities شاخص فلزات گرانبها
+            // 🚨 مشکل ۳: حذف درصد تغییرات (چون در بک‌اند موجود نیست)
             const global_commodities = {
-                gold: globalCommoditiesData.gold ?? null,
-                silver: globalCommoditiesData.silver ?? null,
-                platinum: globalCommoditiesData.platinum ?? null,
-                copper: globalCommoditiesData.copper ?? null
+                // فقط مقدار و عنوان مورد نیاز است. فیلدهای change و percent حذف می‌شوند.
+                gold: { title: "طلای جهانی (اونس)", value: globalCommoditiesData.gold ?? null },
+                silver: { title: "نقره جهانی (اونس)", value: globalCommoditiesData.silver ?? null },
+                platinum: { title: "پلاتین جهانی (اونس)", value: globalCommoditiesData.platinum ?? null },
+                copper: { title: "مس جهانی (اونس)", value: globalCommoditiesData.copper ?? null }
             };
 
             const processedData = {
@@ -313,7 +410,9 @@ export const fetchMarketOverview = async (forceRefresh = false, freshToken = nul
                 coin: coinItems,
                 funds: funds,
                 indices: indices,
-                global_commodities: global_commodities
+                global_commodities: global_commodities,
+                // 🚨 مشکل ۱: اضافه کردن زمان به‌روزرسانی بک‌اند
+                last_backend_update: lastBackendUpdate 
             };
 
             console.log('✅ Processed Data:', processedData);
@@ -792,6 +891,78 @@ export const fetchMarketSummary = async (forceRefresh = false) => {
 // ==========================================================
 // B) توابع خاص نماد (Symbol-Specific - نیاز به symbol)
 // ==========================================================
+
+
+// 8. GET /api/analysis/stock-history/<symbol>
+/**
+ * واکشی سابقه تاریخی روزانه یک نماد در یک بازه مشخص یا تعداد روزهای اخیر.
+ * @param {string} symbol - نام نماد مورد نظر (مثلاً شپلی).
+ * @param {object} options - شامل days، start_date، end_date.
+ * @returns {Promise<{history: Array<object>}>} - آرایه‌ای از رکوردهای تاریخی.
+ */
+export const fetchStockHistory = async (symbol, options = {}) => {
+    try {
+        if (!symbol) {
+            throw new Error('Symbol is required to fetch stock history.');
+        }
+
+        const { days = 21, start_date, end_date } = options;
+        const formattedSymbol = encodeURIComponent(symbol.trim().toUpperCase());
+        const endpoint = `/analysis/stock-history/${formattedSymbol}`;
+
+        // 📝 منطق اولویت فیلتر:
+        // اگر start_date و end_date ارسال شوند، از آن‌ها استفاده کن. 
+        // در غیر این صورت، از days استفاده کن.
+        
+        let queryParams = {};
+        if (start_date && end_date) {
+            // اولویت ۱: بازه تاریخ
+            queryParams = { start_date, end_date };
+            console.log(`🔍 Fetching ${symbol} history from ${start_date} to ${end_date}`);
+        } else {
+            // اولویت ۲: تعداد روزهای اخیر
+            queryParams = { days };
+            console.log(`🔍 Fetching ${symbol} history for last ${days} days`);
+        }
+        
+        // تابع makeAPIRequest پارامترهای کوئری را در options به عنوان 'params' قبول می‌کند.
+        const data = await makeAPIRequest(endpoint, {
+            params: queryParams,
+            method: 'GET' // متد GET است
+        });
+
+        // ساختار پاسخ: { "history": [...] }
+        const historyData = data?.history;
+
+        if (!Array.isArray(historyData)) {
+             // اگر داده‌ای برای نماد در بازه نبود، ۴۰۴ توسط makeAPIRequest مدیریت می‌شود
+             // اما اگر پاسخ 200 بود ولی ساختار body اشتباه بود، اینجا خطا می‌دهیم
+             throw new Error("Invalid or empty history data format received.");
+        }
+        
+        return {
+            history: historyData,
+            _lastUpdate: new Date(),
+        };
+
+    } catch (error) {
+        console.error(`❌ Error fetching stock history for ${symbol}:`, error);
+        // در صورت بروز خطا (مثل ۴۰۱، ۴۰۰، ۴۰۴ که توسط makeAPIRequest پرتاب می‌شوند)
+        // یک شیء خالی به همراه پرچم خطا برگردانده می‌شود.
+        return {
+            history: [],
+            _error: error.message || true,
+            _lastUpdate: new Date(),
+        };
+    }
+};
+
+
+
+
+
+
+
 
 // 3. GET /analysis/fundamental_data/{symbol_input}
 export const fetchFundamentalData = async (symbol) => {

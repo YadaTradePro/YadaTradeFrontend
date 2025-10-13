@@ -40,34 +40,42 @@ export default function MarketCard({ title, value, change, historyData, loading 
     };
   };
 
-  const changeData = formatChange(change);
-  const hasValidHistory = historyData && Array.isArray(historyData) && historyData.length > 1;
+const changeData = formatChange(change);
+const hasValidHistory = historyData && Array.isArray(historyData) && historyData.length > 1;
 
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h3 className="card-title">{title || 'نامشخص'}</h3>
-      </div>
-      
-      <div className="card-value persian-num">
-        {formatValue(value)}
-      </div>
-      
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '24px' }}>
-        {changeData ? (
-          <div className={`card-change ${changeData.isPositive ? 'positive' : 'negative'}`}>
-            {changeData.isPositive ? (
-              <ArrowUpIcon className="icon-sm" />
-            ) : (
-              <ArrowDownIcon className="icon-sm" />
-            )}
-            <span className="persian-num">{changeData.formatted}</span>
-          </div>
-        ) : (
-          <div className="card-change neutral">
-            <span>بدون تغییر</span>
-          </div>
-        )}
+return (
+  <div className="card">
+    <div className="card-header">
+      <h3 className="card-title">{title || 'Unknown'}</h3>
+    </div>
+    
+    <div className="card-value">
+      {formatValue(value)}
+    </div>
+    
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '24px' }}>
+      {changeData && (
+        <div className={`card-change ${changeData.isPositive ? 'positive' : 'negative'}`}>
+          {changeData.isPositive ? (
+            <ArrowUpIcon className="icon-sm" />
+          ) : (
+            <ArrowDownIcon className="icon-sm" />
+          )}
+          <span>{changeData.formatted}</span>
+        </div>
+      )}
+
+      {hasValidHistory && (
+        <div className="sparkline">
+          <Sparklines data={historyData}>
+            <SparklinesLine 
+              color={changeData?.isPositive ? '#48bb78' : '#f56565'} 
+              style={{ strokeWidth: 1.5, fill: 'none' }}
+            />
+          </Sparklines>
+        </div>
+      )}
+
         
         {hasValidHistory && (
           <div className="sparkline">

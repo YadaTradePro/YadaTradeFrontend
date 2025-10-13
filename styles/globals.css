@@ -409,3 +409,291 @@ body {
   direction: ltr;
   display: inline-block;
 }
+
+
+
+/* ========================================================= */
+/* 📈 StockDetailView - استایل‌های جدید */
+/* ========================================================= */
+
+.stock-detail-view-container {
+    padding: 25px;
+    margin-top: 30px;
+    background-color: var(--card-bg); /* #ffffff */
+    border-radius: var(--radius-lg); /* 12px */
+    box-shadow: var(--shadow-md); 
+    border: 1px solid var(--border-color);
+    direction: rtl; 
+}
+
+.detail-title {
+    font-size: 1.6rem;
+    margin-bottom: 25px;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 10px;
+    font-weight: 600;
+}
+
+/* استایل برای ظرف نمودار */
+.chart-wrapper {
+    height: 350px; /* ارتفاع مشخص برای نمودار */
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin-bottom: 30px;
+    background-color: var(--primary-bg);
+}
+
+.table-title {
+    font-size: 1.3rem;
+    margin-bottom: 15px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.history-table-wrapper {
+    overflow-x: auto; /* برای جدول افقی در صفحه‌های کوچک */
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1300px; /* عرض مناسب برای نمایش تمام ستون‌ها */
+    font-size: 13px;
+    text-align: center;
+}
+
+.history-table th, .history-table td {
+    padding: 12px 8px;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+}
+
+.history-table th {
+    background-color: var(--secondary-bg); /* #f5f0ff */
+    color: var(--text-primary);
+    font-weight: 600;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* زیبایی سطرها */
+.history-table tbody tr:nth-child(even) {
+    background-color: var(--hover-bg); /* #faf7ff */
+}
+
+.history-table tbody tr:hover {
+    background-color: #eee9ff; /* کمی پررنگ‌تر از hover-bg */
+}
+
+/* ستون تاریخ (استیکی) */
+.history-table .sticky-col {
+    position: sticky;
+    right: 0;
+    background-color: inherit; /* مهم است تا رنگ سطر حفظ شود */
+    z-index: 1;
+    border-left: 2px solid var(--accent-purple); /* برای جداسازی بصری */
+}
+
+.history-table .date-cell {
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: right;
+    padding-right: 15px;
+}
+
+/* رنگ قیمت پایانی */
+.history-table .final-price-cell {
+    font-weight: 600;
+    background-color: #f7f9ff;
+}
+
+/* فونت اعداد (فارسی-انگلیسی) */
+.history-table td {
+    font-family: 'Inter', sans-serif;
+    direction: ltr; /* اعداد را چپ به راست نمایش می‌دهد */
+}
+
+/* سلول‌های درصد تغییر */
+.history-table .change-cell {
+    font-weight: 700;
+}
+
+/* استایل‌های خطا و بارگذاری */
+.detail-container.loading-state, .detail-container.error-state {
+    text-align: center;
+    padding: 30px;
+    margin-top: 30px;
+    border-radius: var(--radius-lg);
+    border: 1px solid #ffcc80;
+    background-color: #fffbe6;
+    color: var(--text-primary);
+}
+
+.detail-container.error-state {
+    background-color: var(--danger);
+    border: 1px solid var(--danger);
+    color: white;
+}
+
+
+.card-selected {
+    border-color: #5d87ff; /* اینجا یک کامنت ساده و انگلیسی هم اگر خواستید بگذارید */
+    box-shadow: 0 0 0 3px rgba(93, 135, 255, 0.3), var(--shadow-lg);
+    transform: translateY(-3px);
+}
+
+/* این استایل باید با استایل hover رقابت کند */
+.card-selected:hover {
+    box-shadow: 0 0 0 3px rgba(93, 135, 255, 0.3), var(--shadow-lg);
+    transform: translateY(-3px); 
+    border-color: #5d87ff; 
+}
+
+/* اگر نمی‌خواهید کارت انتخاب شده در حالت عادی هم بزرگ بماند، خطوط زیر را حذف کنید: */
+/*
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  border-color: #e2e8f0;
+}
+*/
+
+
+
+/* فایل استایل شما: مثلاً StockDetailView.css */
+
+.stock-detail-view-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    padding: 20px;
+    background-color: #f9fafb;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.detail-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+/* --- استایل‌های بخش نمودار --- */
+.chart-wrapper {
+    margin-bottom: 30px;
+    padding: 10px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* کلاس chart-container توسط کامپوننت CandlestickChart استفاده می‌شود */
+.chart-container {
+    width: 100%;
+    height: 300px; /* ارتفاع باید با مقدار داخل کامپوننت هماهنگ باشد */
+}
+
+.no-chart-data {
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    background-color: #f9fafb;
+    border-radius: 8px;
+}
+
+/* --- استایل‌های بخش جدول --- */
+.table-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 16px;
+}
+
+.history-table-wrapper {
+    overflow-x: auto; /* برای واکنش‌گرایی در موبایل */
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    font-size: 0.875rem; /* 14px */
+}
+
+.history-table th, .history-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap; /* جلوگیری از شکستن اعداد */
+}
+
+.history-table thead {
+    background-color: #f3f4f6;
+    color: #4b5563;
+    font-weight: 600;
+}
+
+.history-table tbody tr:hover {
+    background-color: #eef2ff !important; /* رنگ هاور زیبا */
+}
+
+.sticky-col {
+    position: sticky;
+    left: 0;
+    background-color: inherit; /* رنگ پس‌زمینه را از ردیف والد به ارث می‌برد */
+    z-index: 1;
+}
+
+.history-table thead .sticky-col {
+    background-color: #f3f4f6;
+}
+
+.date-cell {
+    font-weight: 500;
+    color: #111827;
+}
+
+.change-cell {
+    font-weight: 600;
+}
+
+/* --- وضعیت‌های بارگذاری و خطا --- */
+.detail-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: #6b7280;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #5d87ff; /* رنگ برند شما */
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-state p {
+    color: #ef4444;
+    background-color: #fee2e2;
+    padding: 12px 20px;
+    border-radius: 8px;
+}

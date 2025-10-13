@@ -8,6 +8,9 @@ export default function PotentialQueuesPage() {
   const [potentialQueues, setPotentialQueues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // اضافه کردن متادیتای جدید
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [filtersList, setFiltersList] = useState([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -16,13 +19,22 @@ export default function PotentialQueuesPage() {
         const data = await fetchPotentialQueues();
         console.log("📊 Potential Queues raw response:", data);
         
-        if (data && Array.isArray(data.top_queues)) {
-          console.log("📊 Setting potential queues with:", data.top_queues);
-          setPotentialQueues(data.top_queues);
+        // **✅ اصلاح کلیدی برای تطبیق با ساختار جدید پاسخ بک‌اند:**
+        if (data) {
+          if (Array.isArray(data.top_queues)) {
+            console.log("📊 Setting potential queues with:", data.top_queues);
+            setPotentialQueues(data.top_queues);
+          } else {
+            console.warn("📊 No top_queues array found in response:", data);
+            setPotentialQueues([]);
+          }
+          // تنظیم متادیتای جدید
+          setLastUpdated(data.last_updated);
+          setFiltersList(data.technical_filters || []);
         } else {
-          console.warn("📊 No top_queues found in response:", data);
           setPotentialQueues([]);
         }
+
         setError(null);
       } catch (err) {
         setError('خطا در بارگذاری احتمال صف خرید');
@@ -38,7 +50,10 @@ export default function PotentialQueuesPage() {
   const formatNumber = (value) => {
     if (value === null || value === undefined) return 'بدون داده';
     // از toLocaleString برای نمایش اعداد با جداکننده هزارگان فارسی استفاده می‌شود
-    return value.toLocaleString('fa-IR'); 
+    // اطمینان از اینکه ورودی عدد است
+    const num = Number(value);
+    if (isNaN(num)) return 'بدون داده';
+    return num.toLocaleString('fa-IR'); 
   };
 
   if (loading) {
@@ -83,7 +98,7 @@ export default function PotentialQueuesPage() {
           <title>احتمال صف خرید - داشبورد بورس</title>
         </Head>
         <Navbar />
-        <PageHeader title="📈 احتمال صف خرید" subtitle="سهام با احتمال تشکیل صف خرید" />
+        <PageHeader title="📈 احتمال صف خرید" subtitle={`سهام با احتمال تشکیل صف خرید. (آخرین به‌روزرسانی: ${lastUpdated || 'نامشخص'})`} />
         <div className="dashboard-container">
           <div className="empty-state">
             <p>داده‌ای برای نمایش وجود ندارد</p>
@@ -102,58 +117,72 @@ export default function PotentialQueuesPage() {
       </Head>
 
       <Navbar />
-      <PageHeader title="📈 احتمال صف خرید" subtitle="سهام با احتمال تشکیل صف خرید" />
+      <PageHeader 
+        title="📈 احتمال صف خرید" 
+        subtitle={`سهام با احتمال تشکیل صف خرید. (آخرین به‌روزرسانی: ${lastUpdated || 'نامشخص'})`} 
+      />
 
       <div className="dashboard-container">
+        {/* بخش نمایش فیلترها (اختیاری) */}
+        {filtersList.length > 0 && (
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--bg-light)', borderRadius: 'var(--radius)', fontSize: '13px' }}>
+            <span style={{ fontWeight: 'bold' }}>فیلترهای فعال: </span>
+            {filtersList.map(f => f.name).join(' | ')}
+          </div>
+        )}
+        
         <div className="grid-4">
           {potentialQueues.map((item, index) => (
             <div key={index} className="card">
               <div className="card-header">
-                {/* ✅ اصلاح: استفاده از symbol_name */}
                 <h3 className="card-title">{item.symbol_name || item.symbol_id || 'نامشخص'}</h3> 
               </div>
               
               <div style={{ marginBottom: '16px' }}>
-                {/* ✅ اصلاح: استفاده از symbol_name (به جای company_name مفقود) */}
-                <div className="card-value">{item.symbol_name || item.company_name || item.name || 'نام نامشخص'}</div> 
+                <div className="card-value">
+                  {/* ✅ نمایش درصد احتمال به جای نام شرکت */}
+                  <span style={{ fontWeight: 'bold', fontSize: '24px', color: item.probability_percent >= 70 ? 'var(--success)' : item.probability_percent >= 50 ? 'var(--warning)' : 'var(--danger)' }}>
+                    {formatNumber(item.probability_percent)}% 
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '14px', marginRight: '5px' }}>احتمال</span>
+                </div> 
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px' }}>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>قیمت:</span>
                   <div style={{ fontWeight: '600', marginTop: '2px', direction: 'ltr' }}>
-                    {/* ✅ اصلاح: استفاده از current_price */}
                     {formatNumber(item.current_price)} 
                   </div>
                 </div>
                 
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>تغییر روزانه:</span>
+                  <span style={{ color: 'var(--text-muted)' }}>قدرت خریدار (حقیقی):</span>
                   <div style={{ 
                     fontWeight: '600', 
                     marginTop: '2px',
-                    // ✅ اصلاح: استفاده از volume_change_percent
-                    color: item.volume_change_percent >= 0 ? 'var(--success)' : 'var(--danger)' 
+                    // ✅ استفاده از real_buyer_power_ratio
+                    color: item.real_buyer_power_ratio >= 1 ? 'var(--success)' : 'var(--danger)' 
                   }}>
-                    {/* ✅ اصلاح: استفاده از volume_change_percent و مدیریت 0 */}
-                    {item.volume_change_percent !== null && item.volume_change_percent !== undefined
-                        ? `${item.volume_change_percent >= 0 ? '+' : ''}${item.volume_change_percent}%` 
+                    {/* ✅ استفاده از real_buyer_power_ratio */}
+                    {item.real_buyer_power_ratio !== null && item.real_buyer_power_ratio !== undefined
+                        ? formatNumber(item.real_buyer_power_ratio.toFixed(2))
                         : 'بدون داده'}
                   </div>
                 </div>
                 
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>حجم معاملات:</span>
-                  <div style={{ fontWeight: '600', marginTop: '2px', direction: 'ltr' }}>
-                    {/* ⚠️ نکته: فیلد volume در JSON پاسخ Backend وجود ندارد و همچنان "بدون داده" خواهد بود */}
-                    {formatNumber(item.volume)} 
+                  <span style={{ color: 'var(--text-muted)' }}>فیلترهای منطبق:</span>
+                  <div style={{ fontWeight: '500', marginTop: '2px', fontSize: '11px' }}>
+                    {/* ✅ نمایش لیست فیلترهای منطبق (که باید یک آرایه باشد) */}
+                    {(Array.isArray(item.matched_filters) ? item.matched_filters.join(' | ') : item.reason) || 'ندارد'}
                   </div>
                 </div>
               </div>
               
               {item.reason && (
                 <div style={{ marginTop: '12px', padding: '8px', background: 'var(--accent-pink)', borderRadius: 'var(--radius)', fontSize: '11px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>تحلیل:</span>
+                  <span style={{ color: 'var(--text-muted)' }}>تحلیل اصلی:</span>
                   <div style={{ marginTop: '2px', lineHeight: '1.4' }}>{item.reason}</div>
                 </div>
               )}
