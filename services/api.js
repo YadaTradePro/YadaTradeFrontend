@@ -828,12 +828,11 @@ export const fetchAppPerformance = async (forceRefresh = false, periodType = 'we
 // ==========================================================
 // A) توابع عمومی (Market-Wide - بدون نیاز به symbol)
 // ==========================================================
-
 // 1. GET /analysis/market-summary (با قابلیت کش ۶ ساعته)
+
 export const fetchMarketSummary = async (forceRefresh = false) => {
     const cacheKey = CACHE_KEYS.MARKET_SUMMARY;
 
-    // ۱. ابتدا کش را برای داده معتبر بررسی می‌کنیم
     if (!forceRefresh && isCacheValid(cacheKey)) {
         const cached = getCache(cacheKey);
         console.log(`📦 Using cached market summary data from ${cached.lastUpdate.toLocaleString()}`);
@@ -844,27 +843,25 @@ export const fetchMarketSummary = async (forceRefresh = false) => {
         };
     }
 
-    // ۲. در صورت نبود کش معتبر، از API درخواست می‌کنیم
     try {
         const data = await makeAPIRequest('/analysis/market-summary');
         
-        // بررسی می‌کنیم که داده‌های دریافت شده معتبر باشند
-        if (data && data.summary) {
+        // ✅ تغییر کلیدی: به جای data.summary، وجود data.sentiment را بررسی می‌کنیم
+        if (data && data.sentiment) {
             console.log('📊 Market Summary RAW API Response:', data);
-            setCache(cacheKey, data); // داده‌های جدید را کش می‌کنیم
+            setCache(cacheKey, data); // کل آبجکت ساختاریافته را کش می‌کنیم
             return {
                 ...data,
                 _cached: false,
                 _lastUpdate: new Date()
             };
         }
-        // اگر پاسخ دریافتی ساختار مورد انتظار را نداشت، خطا ایجاد می‌کنیم
-        throw new Error("Invalid or empty market summary data received.");
+        
+        throw new Error("Invalid or empty market sentiment data received.");
 
     } catch (error) {
         console.error('❌ Failed to fetch fresh market summary data. Checking for stale cache...', error);
 
-        // ۳. در صورت بروز خطا، به داده‌های کش شده (حتی اگر منقضی شده باشند) باز می‌گردیم
         const cached = getCachedDataWithFallback(cacheKey);
         if (cached) {
             console.warn('📦 Serving stale cached market summary data.');
@@ -876,10 +873,10 @@ export const fetchMarketSummary = async (forceRefresh = false) => {
                 _error: error.message
             };
         }
-
-        // ۴. اگر هیچ داده‌ای (حتی منقضی شده) در کش وجود نداشت، یک حالت خطا برمی‌گردانیم
+        
+        // در صورت خطا، یک آبجکت با sentiment: null برمی‌گردانیم تا UI خراب نشود
         return {
-            summary: null,
+            sentiment: null,
             _cached: false,
             _error: true,
             _lastUpdate: new Date()
