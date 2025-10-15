@@ -1,325 +1,361 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-
-// ✅ استفاده از کامپوننت‌های مشترک
 import Navbar from '../components/Navbar';
 import PageHeader from '../components/PageHeader';
+import StockDetailView from '../components/StockDetailView';
+import { fetchMarketSummary } from '../services/api';
 
-// 🛠️ اصلاح: ایمپورت توابع واقعی API از فایل مجزا (api.js)
-// ⚠️ مسیر را بر اساس ساختار واقعی پروژه خود تنظیم کنید.
-import { fetchMarketSummary, fetchFullAnalysis } from '../services/api';
+// ✅ ایمپورت استایل‌ها از CSS Module
+import styles from './StockReview.module.css';
 
-// ------------------- بخش سرویس API (حذف شد) -------------------
-// ❌ بخش Mock API و کش موقت (cache, CACHE_DURATION_MS, makeAPIRequest, makeCachedAPIRequest) 
-// ❌ به‌طور کامل حذف شد.
+// ------------------- کامپوننت‌های UI بهبود یافته -------------------
 
-// ------------------- RenderMarkdown -------------------
-const RenderMarkdown = ({ text }) => {
-	if (!text) return null;
+// کامپوننت کوچک برای نمایش هر کارت در داشبورد (استفاده برای شاخص‌ها)
+const IndexCard = ({ icon, title, value, subtitle, statusColor = 'neutral' }) => {
+    const statusClass = {
+        positive: styles.textPositive,
+        negative: styles.textNegative,
+        neutral: styles.textNeutral,
+    }[statusColor];
 
-	return text.split('\n').map((line, index) => {
-		if (line.trim() === '') return <br key={index} />;
-		if (line.startsWith('## ')) {
-			return (
-				<h2 key={index} style={{
-					fontSize: '1.5rem',
-					fontWeight: '600',
-					color: '#1f2937',
-					marginBottom: '1rem',
-					borderBottom: '1px solid #e5e7eb',
-					paddingBottom: '0.5rem'
-				}}>
-					{line.substring(3)}
-				</h2>
-			);
-		}
-
-		const parts = line.split('**');
-		const styledLine = parts.map((part, i) => {
-			if (i % 2 === 1) {
-				let customStyle = {};
-				if (part.includes('%') || part.includes('میلیارد تومان')) {
-					const isPositive = part.includes('+') || part.includes('ورود');
-					customStyle.color = isPositive ? '#10b981'
-						: part.includes('-') || part.includes('خروج')
-							? '#ef4444'
-							: '#1f2937';
-				}
-				return <strong key={i} style={customStyle}>{part}</strong>;
-			}
-			return <Fragment key={i}>{part}</Fragment>
-		});
-
-		return <p key={index} style={{ marginBottom: '0.75rem', lineHeight: '1.7' }}>{styledLine}</p>;
-	});
+    return (
+        // کارت‌های کوچکتر شده
+        <div className={`${styles.card} ${styles.indexCard}`}> 
+            <div className={styles.cardHeader}>
+                <span className={styles.cardIcon}>{icon}</span>
+                <h3 className={styles.cardTitle}>{title}</h3>
+            </div>
+            {/* فونت بزرگتر و متمرکز برای value */}
+            <p className={`${styles.cardBody} ${styles.largeValue}`}>
+                {value}
+            </p>
+            {subtitle && <p className={`${styles.cardSubtitle} ${statusClass}`}>{subtitle}</p>}
+        </div>
+    );
 };
+
+// کامپوننت مخصوص نمایش جریان پول، قدرت خریدار و وضعیت کلی (مقایسه بصری)
+const ComparisonCard = ({ title, primaryValue, primaryLabel, secondaryValue, secondaryLabel, statusColor = 'neutral', fullText, valueColorApplied = false, renderValue }) => {
+    const statusClass = {
+        positive: styles.textPositive,
+        negative: styles.textNegative,
+        neutral: styles.textNeutral,
+    }[statusColor];
+    
+    // کلاسی که به خود مقدار اعمال می‌شود (برای جریان پول)
+    const valueClass = valueColorApplied ? statusClass : styles.textNeutral;
+
+    return (
+        <div className={`${styles.card} ${styles.comparisonCard}`}>
+            <div className={styles.cardHeader}>
+                <h3 className={styles.cardTitle}>{title}</h3>
+            </div>
+            
+            <div className={styles.comparisonBody}>
+                {/* اگر renderValue تعریف شده باشد، از آن استفاده می‌شود (برای وضعیت کلی نمادها) */}
+                {renderValue ? renderValue : (
+                    <>
+                        {/* مقادیر اصلی */}
+                        <div className={styles.comparisonValueGroup}>
+                            {/* اعمال رنگ وضعیت به عدد اصلی (برای جریان پول) */}
+                            <span className={`${styles.comparisonPrimaryValue} ${valueClass}`}>{primaryValue}</span> 
+                            <span className={styles.comparisonLabel}>{primaryLabel}</span>
+                        </div>
+                        
+                        {/* مقادیر ثانویه/مقایسه‌ای */}
+                        {(secondaryValue || secondaryLabel) && (
+                            <div className={styles.comparisonSecondary}>
+                                <span className={styles.comparisonSecondaryValue}>{secondaryValue}</span>
+                                <span className={styles.comparisonLabel}>{secondaryLabel}</span>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* توضیحات کامل‌تر با رنگ وضعیت */}
+            {fullText && <p className={`${styles.cardSubtitle} ${statusClass}`} dangerouslySetInnerHTML={{ __html: fullText }} />}
+        </div>
+    );
+};
+
+
+// ------------------- کامپوننت‌های اصلی داشبورد -------------------
+
+const MarketIndexDashboard = ({ sentimentData }) => {
+    if (!sentimentData) return null;
+
+    const { total_index, equal_weighted_index } = sentimentData;
+
+    return (
+        <div className={styles.sectionContainer}>
+            <h2 className={styles.sectionTitle}>📈 شاخص‌های کلیدی (کل و هم‌وزن)</h2>
+            {/* بخش ۱: شاخص‌ها - در یک ردیف و دو ستون */}
+            <div className={`${styles.dashboardGrid} ${styles.twoColumns}`}> 
+                <IndexCard
+                    icon="📈"
+                    title="شاخص کل"
+                    value={total_index.value.toLocaleString()}
+                    subtitle={total_index.status}
+                    statusColor={total_index.status === 'صعودی' ? 'positive' : 'negative'}
+                />
+                <IndexCard
+                    icon="⚖️"
+                    title="شاخص هم‌وزن"
+                    value={equal_weighted_index.value.toLocaleString()}
+                    subtitle={equal_weighted_index.status}
+                    statusColor={equal_weighted_index.status === 'صعودی' ? 'positive' : 'negative'}
+                />
+            </div>
+        </div>
+    );
+};
+
+const MarketSentimentDashboard = ({ sentimentData }) => {
+    if (!sentimentData) return null;
+
+    const { money_flow, per_capita, market_breadth } = sentimentData;
+
+    // تعیین وضعیت قدرت خریدار
+    const perCapitaStatus = per_capita.buy / per_capita.sell;
+    let powerColor = 'neutral';
+    if (perCapitaStatus > 1.05) powerColor = 'positive'; 
+    else if (perCapitaStatus < 0.95) powerColor = 'negative';
+
+    // تعیین وضعیت کلی نمادها
+    const breadthColor = market_breadth.positive_symbols > market_breadth.negative_symbols ? 'positive' : 'negative';
+
+
+    return (
+        <div className={styles.sectionContainer} style={{ marginTop: '2rem' }}>
+            <h2 className={styles.sectionTitle}>☀️ نبض بازار و جریان پول</h2>
+            <div className={styles.dashboardGrid}>
+                
+                {/* جریان پول حقیقی */}
+                <ComparisonCard
+                    title="جریان پول حقیقی (نقدینگی)"
+                    primaryValue={`${money_flow.net_value_billion_toman.toFixed(2)}`}
+                    primaryLabel="میلیارد تومان"
+                    statusColor={money_flow.net_value_billion_toman > 0 ? 'positive' : (money_flow.net_value_billion_toman < 0 ? 'negative' : 'neutral')}
+                    fullText={money_flow.status_text}
+                    valueColorApplied={true} // اعمال رنگ به عدد
+                />
+
+                {/* قدرت خریدار حقیقی */}
+                <ComparisonCard
+                    title="قدرت خریدار/فروشنده (حقیقی)"
+                    primaryValue={`${per_capita.buy.toFixed(0)}`}
+                    primaryLabel="میانگین خرید (م.تومان)"
+                    secondaryValue={`${per_capita.sell.toFixed(0)}`}
+                    secondaryLabel="میانگین فروش (م.تومان)"
+                    statusColor={powerColor}
+                    fullText={per_capita.status_text}
+                />
+
+                {/* وضعیت کلی نمادها (رنگ مثبت/منفی اصلاح شد) */}
+                <ComparisonCard
+                    title="وضعیت کلی نمادها"
+                    statusColor={breadthColor}
+                    renderValue = {
+                        <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', alignItems: 'baseline' }}>
+                            <div className={styles.comparisonValueGroup}>
+                                <span className={`${styles.comparisonPrimaryValue} ${styles.textPositive}`}>{market_breadth.positive_symbols}</span>
+                                <span className={styles.comparisonLabel}>نماد مثبت</span>
+                            </div>
+                            <div className={styles.comparisonSecondary}>
+                                <span className={`${styles.comparisonSecondaryValue} ${styles.textNegative}`}>{market_breadth.negative_symbols}</span>
+                                <span className={styles.comparisonLabel}>نماد منفی</span>
+                            </div>
+                        </div>
+                    }
+                />
+
+            </div>
+        </div>
+    );
+};
+
+// کامپوننت نمایش صنایع برتر (به صورت جدول ۳ ردیفه)
+const SectorFlowTable = ({ sectors }) => {
+    if (!sectors || sectors.length === 0) return null;
+
+    // فقط ۳ ردیف اول را نمایش می‌دهیم
+    const topSectors = sectors.slice(0, 3);
+
+    return (
+        <div className={styles.sectionContainer} style={{ marginTop: '2rem' }}>
+            <h2 className={styles.sectionTitle}>💰 صنایع برتر (ورود پول)</h2>
+            
+            <div className={styles.tableResponsive}>
+                <table className={`${styles.dataGrid} ${styles.narrowTable}`}> 
+                    <thead>
+                        <tr>
+                            <th style={{ width: '50%' }}>صنعت</th>
+                            <th style={{ width: '25%' }}>وضعیت</th>
+                            <th style={{ width: '25%' }}>مقدار</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {topSectors.map((sector, index) => {
+                            const flowClass = sector.flow_status === 'ورود' ? styles.textPositive : styles.textNegative;
+                            
+                            // فیلتر کردن رشته‌های اضافی از نام صنعت
+                            const cleanName = sector.sector_name.includes("',CgrValCot='") 
+                                ? sector.sector_name.split("',CgrValCot='")[0] 
+                                : sector.sector_name;
+
+                            return (
+                                <tr key={index}>
+                                    <td>{cleanName}</td>
+                                    <td className={flowClass} style={{ fontWeight: 'bold' }}>{sector.flow_status}</td>
+                                    <td>{sector.flow_value_text}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+// کامپوننت نمایش واچ‌لیست فعال (جدول بدون محدودیت ردیف و ۳ ستونی)
+const ActiveWatchlist = ({ symbols }) => {
+    if (!symbols || symbols.length === 0) return null;
+
+    // 💡 مهم: حذف محدودیت slice(0, 3) برای نمایش تمام ردیف‌ها
+
+    return (
+        <div className={styles.sectionContainer} style={{ marginTop: '2rem' }}>
+            <h2 className={styles.sectionTitle}>🔥 واچ‌لیست فعال (روزانه)</h2>
+            
+            <div className={styles.tableResponsive}>
+                <table className={`${styles.dataGrid} ${styles.narrowTable}`}>
+                    <thead>
+                        <tr>
+                            <th>نماد</th>
+                            <th>قیمت ورود</th>
+                            <th>تغییر روزانه</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {symbols.map((symbol) => { // 💡 استفاده از تمام symbols
+                            const changeClass = symbol.daily_change_percent > 0 ? styles.textPositive : (symbol.daily_change_percent < 0 ? styles.textNegative : styles.textNeutral);
+
+                            return (
+                                <tr key={symbol.symbol_id}>
+                                    <td>**{symbol.symbol_name}**</td>
+                                    <td>{symbol.entry_price ? symbol.entry_price.toLocaleString() : 'N/A'}</td>
+                                    <td className={changeClass} style={{ fontWeight: 'bold' }}>
+                                        {symbol.daily_change_percent ? `${symbol.daily_change_percent.toFixed(2)}%` : 'N/A'}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
 
 // ------------------- کامپوننت اصلی صفحه -------------------
 export default function StockReview() {
-	const [marketSummary, setMarketSummary] = useState(null);
-	const [isInitialLoading, setIsInitialLoading] = useState(true);
-	const [initialError, setInitialError] = useState(null);
+    const [marketSummary, setMarketSummary] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-	const [symbol, setSymbol] = useState('');
-	const [analysisResult, setAnalysisResult] = useState(null);
-	const [isSearching, setIsSearching] = useState(false);
-	const [searchError, setSearchError] = useState(null);
+    const [symbol, setSymbol] = useState('');
+    const [selectedSymbol, setSelectedSymbol] = useState('');
 
-	useEffect(() => {
-		const loadInitialData = async () => {
-			try {
-				setInitialError(null);
-				setIsInitialLoading(true);
-				// 🛠️ استفاده از تابع ایمپورت شده از api.js
-				const summaryData = await fetchMarketSummary(); 
-				setMarketSummary(summaryData);
-			} catch (err) {
-				setInitialError('خطا در دریافت خلاصه‌ی وضعیت بازار. لطفاً اتصال اینترنت خود را بررسی کرده و صفحه را رفرش کنید.');
-				console.error("Error loading initial data:", err);
-			} finally {
-				setIsInitialLoading(false);
-			}
-		};
-		loadInitialData();
-	}, []);
+    useEffect(() => {
+        const loadMarketData = async () => {
+            try {
+                setError(null);
+                setIsLoading(true);
+                const summaryData = await fetchMarketSummary();
+                setMarketSummary(summaryData);
+            } catch (err) {
+                setError('خطا در دریافت خلاصه‌ی وضعیت بازار. لطفاً اتصال اینترنت خود را بررسی کرده و صفحه را رفرش کنید.');
+                console.error("Error loading market data:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadMarketData();
+    }, []);
 
-	const handleAnalyze = async () => {
-		if (!symbol.trim()) {
-			setSearchError('لطفاً نماد سهام را وارد کنید');
-			return;
-		}
-		try {
-			setIsSearching(true);
-			setSearchError(null);
-			setAnalysisResult(null);
-			// 🛠️ استفاده از تابع ایمپورت شده از api.js
-			const result = await fetchFullAnalysis(symbol); 
-			setAnalysisResult(result);
-		} catch (err) {
-			setSearchError('خطا در تحلیل داده‌های سهم. ممکن است نماد اشتباه باشد یا داده‌ای برای آن موجود نباشد.');
-			console.error('Error analyzing stock:', err);
-			setAnalysisResult(null);
-		} finally {
-			setIsSearching(false);
-		}
-	};
+    const handleAnalyze = () => {
+        if (!symbol.trim()) return;
+        setSelectedSymbol(symbol.trim());
+    };
 
-	const formatNumber = (value) => {
-		if (value === null || value === undefined) return 'N/A';
-		if (value > 1000000000) return `${(value / 1000000000).toFixed(2)}B`;
-		if (value > 1000000) return `${(value / 1000000).toFixed(2)}M`;
+    return (
+        <>
+            <Head>
+                <title>تحلیل سهام و بازار - داشبورد بورس</title>
+                <meta name="description" content="تحلیل سنتیمنت روزانه بازار و بررسی تکنیکال و بنیادی نمادها" />
+            </Head>
 
-		if (typeof value === 'number' && value % 1 !== 0) {
-			return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(value);
-		}
-		return new Intl.NumberFormat('fa-IR').format(value);
-	};
+            <Navbar />
+            <PageHeader
+                title="📈 تحلیل بازار و سهام"
+                subtitle={`آخرین وضعیت و نبض بازار (تاریخ ${marketSummary?.jdate || 'N/A'}) را مشاهده و نماد مورد نظر خود را تحلیل کنید`}
+            />
 
-	const getChangeColor = (value) => {
-		if (value === null || value === undefined) return '#6b7280';
-		return value > 0 ? '#10b981' : value < 0 ? '#ef4444' : '#6b7280';
-	};
+            <main className={styles.pageContainer}>
+                <div className={styles.contentWrapper}>
+                    
+                    {/* وضعیت بارگذاری و خطا */}
+                    {isLoading && (
+                        <div style={{ textAlign: 'center', padding: '3rem' }}>
+                            <div className={styles.loadingSpinner}></div>
+                            <p style={{ color: '#6b7280', marginTop: '1rem' }}>در حال بارگذاری داده‌های بازار...</p>
+                        </div>
+                    )}
+                    {error && <p className={styles.errorText}>⚠️ {error}</p>}
+                    
+                    {/* نمایش بخش‌های تفکیک شده داشبورد */}
+                    {!isLoading && !error && (
+                        <>
+                            {/* بخش ۱: شاخص‌ها */}
+                            <MarketIndexDashboard sentimentData={marketSummary?.sentiment} />
+                            
+                            {/* بخش ۲: سنتیمنت و جریان پول */}
+                            <MarketSentimentDashboard sentimentData={marketSummary?.sentiment} />
+                            
+                            {/* بخش ۳: صنایع برتر (جدولی) */}
+                            <SectorFlowTable sectors={marketSummary?.sector_summary} />
+                            
+                            {/* بخش ۴: واچ‌لیست فعال (جدولی ساده و کامل) */}
+                            <ActiveWatchlist symbols={marketSummary?.all_symbols} />
+                        </>
+                    )}
+                    
+                    {/* بخش تحلیل اختصاصی نماد */}
+                    <div className={`${styles.card} ${styles.inputCard}`} style={{ marginTop: '3rem' }}>
+                        <h3 className={styles.cardTitle} style={{ marginBottom: '1rem', color: '#1f2937' }}>تحلیل اختصاصی نماد</h3>
+                        <input
+                            type="text"
+                            value={symbol}
+                            onChange={(e) => setSymbol(e.target.value)}
+                            placeholder="نماد سهام را وارد کنید (مثلاً شستا)"
+                            className={styles.textInput}
+                            onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
+                        />
+                        <button onClick={handleAnalyze} className={styles.analyzeButton}>
+                            تحلیل کن
+                        </button>
+                    </div>
 
-	const capitalizeAndFormatKey = (key) => {
-		return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-	};
-
-	const renderDataGrid = (data, title) => {
-		if (!data || Object.keys(data).length === 0) return null;
-		return (
-			<div className="card" style={{ marginBottom: '2rem' }}>
-				<h2 className="text-primary" style={{ marginBottom: '1.5rem' }}>{title}</h2>
-				<div style={{
-					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-					gap: '1rem'
-				}}>
-					{Object.entries(data).map(([key, value]) => (
-						<div key={key} style={{
-							padding: '1rem',
-							background: '#f8f9ff',
-							borderRadius: '8px'
-						}}>
-							<p style={{
-								fontSize: '0.875rem',
-								color: '#6b7280',
-								marginBottom: '0.5rem',
-								textTransform: 'capitalize'
-							}}>
-								{capitalizeAndFormatKey(key)}
-							</p>
-							<p style={{
-								fontSize: '1.1rem',
-								fontWeight: '600',
-								color: (typeof value === 'number' ? getChangeColor(value) : '#1f2937')
-							}}>
-								{(typeof value === 'number') ? formatNumber(value) : value || 'N/A'}
-							</p>
-						</div>
-					))}
-				</div>
-			</div>
-		);
-	};
-
-	const { fundamentalData } = analysisResult || {};
-
-	return (
-		<>
-			<Head>
-				<title>تحلیل سهام اختصاصی - داشبورد بورس</title>
-				<meta name="description" content="تحلیل بنیادی، تکنیکال، و احساسات بازار برای نماد مورد نظر شما" />
-				<meta name="viewport" content="width=device-width, initial-scale=1" />
-			</Head>
-
-			<Navbar />
-			<PageHeader
-				title="📈 تحلیل اختصاصی نماد"
-				subtitle="تحلیل بنیادی، تکنیکال، و احساسات بازار برای نماد مورد نظر شما"
-			/>
-
-			<div className="theme-purple" style={{ paddingBottom: '70px', minHeight: '100vh', background: '#f4f7ff' }}>
-				<div className="page-content" style={{ padding: '0 0 20px 0' }}>
-					<div className="container" style={{ maxWidth: '1000px', margin: '0 auto', padding: '0 15px' }}>
-
-						{/* خلاصه وضعیت بازار */}
-						<div className="card" style={{
-							marginBottom: '2.5rem',
-							background: 'linear-gradient(to right, #f3e8ff, #e8edff)',
-							border: '1px solid #dcd1ff',
-							padding: '2rem'
-						}}>
-							<h2 style={{
-								fontSize: '1.8rem',
-								fontWeight: '700',
-								color: '#5a3d99',
-								marginBottom: '1rem'
-							}}>
-								☀️ خلاصه وضعیت روزانه بازار
-							</h2>
-							{isInitialLoading && (
-								<div style={{ textAlign: 'center', padding: '2rem' }}>
-									<div className="loading-spinner"></div>
-									<p style={{ color: '#6b7280', marginTop: '1rem' }}>
-										در حال بارگذاری داده‌های بازار...
-									</p>
-								</div>
-							)}
-							{initialError && (
-								<p style={{
-									color: '#ef4444',
-									background: '#fff1f1',
-									padding: '1rem',
-									borderRadius: '8px'
-								}}>
-									⚠️ {initialError}
-								</p>
-							)}
-							{marketSummary && marketSummary.summary && (
-								<div style={{ color: '#4a5568', fontSize: '1.1rem', direction: 'rtl' }}>
-									<RenderMarkdown text={marketSummary.summary} />
-								</div>
-							)}
-						</div>
-
-						{/* Input نماد */}
-						<div className="card" style={{ marginBottom: '2rem' }}>
-							<div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-								<input
-									type="text"
-									value={symbol}
-									onChange={(e) => {
-										setSymbol(e.target.value);
-										if (searchError) setSearchError(null);
-									}}
-									placeholder="نماد سهام را وارد کنید (مثلاً شستا)"
-									style={{
-										flex: '1',
-										minWidth: '200px',
-										padding: '0.75rem',
-										border: '1px solid #d1d5db',
-										borderRadius: '6px',
-										fontSize: '1rem',
-										textAlign: 'right'
-									}}
-									onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
-								/>
-								<button
-									onClick={handleAnalyze}
-									disabled={isSearching}
-									style={{
-										minWidth: '120px',
-										cursor: isSearching ? 'not-allowed' : 'pointer',
-										background: '#7b61ff',
-										color: 'white',
-										border: 'none',
-										padding: '0.75rem 1rem',
-										borderRadius: '6px',
-										fontWeight: '600',
-										transition: 'background 0.3s'
-									}}
-								>
-									{isSearching ? 'در حال تحلیل...' : 'تحلیل کن'}
-								</button>
-							</div>
-							{searchError && (
-								<p style={{
-									color: '#ef4444',
-									marginTop: '1rem',
-									fontSize: '0.875rem',
-									textAlign: 'right'
-								}}>
-									⚠️ {searchError}
-								</p>
-							)}
-						</div>
-
-						{/* نتایج */}
-						{isSearching && (
-							<div className="card">
-								<div style={{ textAlign: 'center', padding: '2rem' }}>
-									<div className="loading-spinner"></div>
-									<p style={{ color: '#6b7280', marginTop: '1rem' }}>
-										در حال تحلیل {symbol.toUpperCase()}...
-									</p>
-								</div>
-							</div>
-						)}
-
-						{analysisResult && (
-							<>
-								{renderDataGrid(fundamentalData, `تحلیل بنیادی - ${symbol.toUpperCase()}`)}
-								{analysisResult.technicalData === null && (
-									<div className="card" style={{
-										marginBottom: '2rem',
-										padding: '2rem',
-										textAlign: 'center',
-										background: '#fff9e8',
-										border: '1px solid #ffeeba'
-									}}>
-										<p style={{ color: '#9a7000' }}>
-											داده‌های تحلیل تکنیکال برای این نماد هنوز در دسترس نیستند.
-										</p>
-									</div>
-								)}
-							</>
-						)}
-
-						{!isSearching && !analysisResult && !searchError && (
-							<div className="card">
-								<div style={{ textAlign: 'center', padding: '2rem' }}>
-									<p style={{ color: '#6b7280' }}>
-										لطفاً نماد مورد نظر خود را در فیلد بالا وارد کرده و دکمه "تحلیل کن" را بزنید تا گزارش کامل آن نمایش داده شود. 🚀
-									</p>
-								</div>
-							</div>
-						)}
-
-					</div>
-				</div>
-			</div>
-
-			<Navbar />
-		</>
-	);
+                    {selectedSymbol && (
+                        <div style={{ marginTop: '2rem' }}>
+                            <StockDetailView symbol={selectedSymbol} days={61} />
+                        </div>
+                    )}
+                </div>
+            </main>
+        </>
+    );
 }
