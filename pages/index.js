@@ -9,7 +9,7 @@ import {
   KeyIcon, 
   EyeIcon, 
   ArrowTrendingUpIcon,
-  Cog6ToothIcon 
+  Cog6ToothIcon // این آیکون برای "سایر" استفاده می‌شود، اما ما آن را به صفحه تحلیل سهام لینک خواهیم کرد.
 } from '@heroicons/react/24/outline';
 import { 
   formatNumber, 
@@ -90,7 +90,7 @@ export default function HomePage() {
   const goldItems = marketData?.gold || [];
   const coinItems = marketData?.coin || [];
   const fundsItems = marketData?.funds || [];
-  const indicesItems = marketData?.indices || [];
+  // const indicesItems = marketData?.indices || []; // دیگر برای نمایش استفاده نمی‌شود
   const globalCommodities = marketData?.global_commodities || {};
 
     // Transform global commodities to array format
@@ -152,10 +152,10 @@ export default function HomePage() {
                   color: '#10b981'
                 },
                 {
-                  title: 'سایر',
-                  description: 'تنظیمات و ابزارهای جانبی',
+                  title: 'تحلیل سهام', // 💡 عنوان تغییر داده نشد اما لینک تغییر می‌کند
+                  description: 'بررسی وضعیت بازار و تحلیل نمادها', // 💡 توضیحات به‌روز شد
                   icon: Cog6ToothIcon,
-                  href: '/settings',
+                  href: '/stock-review', // 🔑 تغییر از '/settings' به '/stock-review'
                   color: '#718096'
                 }
               ].map((item, index) => {
@@ -226,8 +226,6 @@ export default function HomePage() {
         </p>
 
 
-
-
           {/* Global Commodities Section */}
           {/* The section is now always rendered as the array won't be empty due to null prices */}
           {globalCommoditiesArray.length > 0 && (
@@ -253,29 +251,12 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* Market Indices Section */}
-          {indicesItems.length > 0 && (
+          {/* Market Indices Section - 🗑️ این بخش حذف شد */}
+          {/* {indicesItems.length > 0 && (
             <section className="section">
-              <div className="section-header">
-                <div>
-                  <h2 className="section-title">
-                    📊 شاخص‌های بورس ایران
-                  </h2>
-                  <p className="section-subtitle">شاخص‌های کلان بازار سرمایه</p>
-                </div>
-              </div>
-              <div className="grid-4">
-                {indicesItems.map((item, index) => (
-                  <MarketCard
-                    key={index}
-                    title={item.title}
-                    value={formatNumber(item.value)} // (3) Use formatNumber
-                    change={normalizeChangePercent(item.percent)} // (3) Use normalizeChangePercent
-                  />
-                ))}
-              </div>
+               ... کد مربوط به شاخص‌های بورس ...
             </section>
-          )}
+          )} */}
 
           {/* Gold Section */}
           {goldItems.length > 0 && (
@@ -353,7 +334,8 @@ export default function HomePage() {
           )}
 
           {/* Empty State */}
-          {!goldItems.length && !coinItems.length && !fundsItems.length && !indicesItems.length && (
+          {/* توجه: indicesItems از این بررسی حذف شد چون همیشه نمایش داده نمی‌شود */}
+          {!goldItems.length && !coinItems.length && !fundsItems.length && (
             <div className="empty-state">
               <p>داده‌ای برای نمایش وجود ندارد</p>
             </div>
