@@ -83,6 +83,7 @@ const ComparisonCard = ({ title, primaryValue, primaryLabel, secondaryValue, sec
 // ------------------- کامپوننت‌های اصلی داشبورد -------------------
 
 const MarketIndexDashboard = ({ sentimentData }) => {
+    // 💡 نکته: این کامپوننت فقط برای تحلیل روزانه معنی دارد
     if (!sentimentData) return null;
 
     const { total_index, equal_weighted_index } = sentimentData;
@@ -112,6 +113,7 @@ const MarketIndexDashboard = ({ sentimentData }) => {
 };
 
 const MarketSentimentDashboard = ({ sentimentData }) => {
+    // 💡 نکته: این کامپوننت فقط برای تحلیل روزانه معنی دارد
     if (!sentimentData) return null;
 
     const { money_flow, per_capita, market_breadth } = sentimentData;
@@ -189,10 +191,9 @@ const SectorFlowTable = ({ sectors }) => {
             <div className={styles.tableResponsive}>
                 <table className={`${styles.dataGrid} ${styles.narrowTable}`}> 
                     <thead>
+                        {/* ⚠️ فشرده‌سازی تگ‌های tr/th برای کاهش احتمال خطای Hydration (whitespace) */}
                         <tr>
-                            <th style={{ width: '50%' }}>صنعت</th>
-                            <th style={{ width: '25%' }}>وضعیت</th>
-                            <th style={{ width: '25%' }}>مقدار</th>
+                            <th style={{ width: '50%' }}>صنعت</th><th style={{ width: '25%' }}>وضعیت</th><th style={{ width: '25%' }}>مقدار</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -220,34 +221,38 @@ const SectorFlowTable = ({ sectors }) => {
 };
 
 // کامپوننت نمایش واچ‌لیست فعال (جدول بدون محدودیت ردیف و ۳ ستونی)
-const ActiveWatchlist = ({ symbols }) => {
+const ActiveWatchlist = ({ symbols, isWeekly }) => { // 🎯 تغییر فیلد نمایش بر اساس isWeekly
     if (!symbols || symbols.length === 0) return null;
 
-    // 💡 مهم: حذف محدودیت slice(0, 3) برای نمایش تمام ردیف‌ها
+    // 🎯 تنظیم عنوان ستون و فیلد داده بر اساس نوع تحلیل
+    const headerTitle = isWeekly ? "درصد سود/زیان" : "تغییر روزانه";
+    const dataField = isWeekly ? "profit_loss_percentage" : "daily_change_percent";
+    const sectionTitle = isWeekly ? "📊 ارزیابی سیگنال‌های هفتگی" : "🔥 واچ‌لیست فعال (روزانه)";
 
     return (
         <div className={styles.sectionContainer} style={{ marginTop: '2rem' }}>
-            <h2 className={styles.sectionTitle}>🔥 واچ‌لیست فعال (روزانه)</h2>
+            <h2 className={styles.sectionTitle}>{sectionTitle}</h2>
             
             <div className={styles.tableResponsive}>
                 <table className={`${styles.dataGrid} ${styles.narrowTable}`}>
                     <thead>
+                        {/* ⚠️ فشرده‌سازی تگ‌های tr/th برای کاهش احتمال خطای Hydration (whitespace) */}
                         <tr>
-                            <th>نماد</th>
-                            <th>قیمت ورود</th>
-                            <th>تغییر روزانه</th>
+                            <th>نماد</th><th>قیمت ورود</th><th>{headerTitle}</th> {/* 👈 استفاده از عنوان و حذف فضای خالی */}
                         </tr>
                     </thead>
                     <tbody>
-                        {symbols.map((symbol) => { // 💡 استفاده از تمام symbols
-                            const changeClass = symbol.daily_change_percent > 0 ? styles.textPositive : (symbol.daily_change_percent < 0 ? styles.textNegative : styles.textNeutral);
+                        {symbols.map((symbol) => { 
+                            const value = symbol[dataField]; // 👈 استفاده از فیلد داده متغیر
+                            // در نظر گرفتن حالت null برای value
+                            const changeClass = value !== null && value > 0 ? styles.textPositive : (value !== null && value < 0 ? styles.textNegative : styles.textNeutral);
 
                             return (
                                 <tr key={symbol.symbol_id}>
                                     <td>**{symbol.symbol_name}**</td>
                                     <td>{symbol.entry_price ? symbol.entry_price.toLocaleString() : 'N/A'}</td>
                                     <td className={changeClass} style={{ fontWeight: 'bold' }}>
-                                        {symbol.daily_change_percent ? `${symbol.daily_change_percent.toFixed(2)}%` : 'N/A'}
+                                        {value !== null ? `${value.toFixed(2)}%` : 'N/A'}
                                     </td>
                                 </tr>
                             );
@@ -290,6 +295,10 @@ export default function StockReview() {
         if (!symbol.trim()) return;
         setSelectedSymbol(symbol.trim());
     };
+    
+    // 🎯 تشخیص نوع تحلیل (روزانه یا هفتگی) برای انتقال به کامپوننت‌های فرعی
+    const isDaily = marketSummary && marketSummary.hasOwnProperty('sentiment');
+    const isWeekly = marketSummary && marketSummary.hasOwnProperty('indices_data');
 
     return (
         <>
@@ -319,17 +328,20 @@ export default function StockReview() {
                     {/* نمایش بخش‌های تفکیک شده داشبورد */}
                     {!isLoading && !error && (
                         <>
-                            {/* بخش ۱: شاخص‌ها */}
-                            <MarketIndexDashboard sentimentData={marketSummary?.sentiment} />
+                            {/* بخش ۱: شاخص‌ها - فقط در حالت روزانه نمایش داده می‌شوند */}
+                            {isDaily && <MarketIndexDashboard sentimentData={marketSummary?.sentiment} />}
                             
-                            {/* بخش ۲: سنتیمنت و جریان پول */}
-                            <MarketSentimentDashboard sentimentData={marketSummary?.sentiment} />
+                            {/* بخش ۲: سنتیمنت و جریان پول - فقط در حالت روزانه نمایش داده می‌شوند */}
+                            {isDaily && <MarketSentimentDashboard sentimentData={marketSummary?.sentiment} />}
                             
                             {/* بخش ۳: صنایع برتر (جدولی) */}
                             <SectorFlowTable sectors={marketSummary?.sector_summary} />
                             
                             {/* بخش ۴: واچ‌لیست فعال (جدولی ساده و کامل) */}
-                            <ActiveWatchlist symbols={marketSummary?.all_symbols} />
+                            <ActiveWatchlist 
+                                symbols={marketSummary?.all_symbols} 
+                                isWeekly={isWeekly} // 👈 انتقال نوع تحلیل
+                            />
                         </>
                     )}
                     
