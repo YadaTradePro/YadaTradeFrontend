@@ -846,8 +846,14 @@ export const fetchMarketSummary = async (forceRefresh = false) => {
     try {
         const data = await makeAPIRequest('/analysis/market-summary');
         
-        // ✅ تغییر کلیدی: به جای data.summary، وجود data.sentiment را بررسی می‌کنیم
-        if (data && data.sentiment) {
+        // 💡 اصلاح کلیدی: بررسی وجود هر یک از کلیدهای ساختار روزانه یا هفتگی 
+        const isDailyAnalysis = data && data.hasOwnProperty('sentiment');
+        const isWeeklyAnalysis = data && (data.hasOwnProperty('indices_data') || data.hasOwnProperty('smart_money_flow_text'));
+        
+        // 🚨 بررسی پاسخ خطای استاندارد از سمت بک‌اند (که شامل کلید 'status' است)
+        const isErrorResponse = data && data.hasOwnProperty('status') && data.status !== 'success';
+
+        if (isDailyAnalysis || isWeeklyAnalysis) {
             console.log('📊 Market Summary RAW API Response:', data);
             setCache(cacheKey, data); // کل آبجکت ساختاریافته را کش می‌کنیم
             return {
@@ -857,7 +863,18 @@ export const fetchMarketSummary = async (forceRefresh = false) => {
             };
         }
         
-        throw new Error("Invalid or empty market sentiment data received.");
+        // اگر پاسخ یک پیام خطای استاندارد از بک‌اند بود، آن را برمی‌گردانیم تا UI مدیریت کند.
+        if (isErrorResponse) {
+             console.warn('Backend returned an error or info status:', data.message || data.status);
+             return {
+                 ...data,
+                 _cached: false,
+                 _lastUpdate: new Date()
+             };
+        }
+        
+        // اگر هیچ ساختار معتبری (روزانه، هفتگی یا خطا) تشخیص داده نشد، خطا صادر می‌شود.
+        throw new Error("Invalid or empty market summary data structure received (Missing 'sentiment' or 'indices_data').");
 
     } catch (error) {
         console.error('❌ Failed to fetch fresh market summary data. Checking for stale cache...', error);
@@ -874,12 +891,14 @@ export const fetchMarketSummary = async (forceRefresh = false) => {
             };
         }
         
-        // در صورت خطا، یک آبجکت با sentiment: null برمی‌گردانیم تا UI خراب نشود
+        // در صورت خطا، یک آبجکت استاندارد برمی‌گردانیم تا UI خراب نشود
         return {
-            sentiment: null,
+            sentiment: null, // این فیلد برای اجزای روزانه لازم است
+            indices_data: null, // این فیلد برای اجزای هفتگی لازم است
             _cached: false,
             _error: true,
-            _lastUpdate: new Date()
+            _lastUpdate: new Date(),
+            message: "Failed to load market summary data due to API error."
         };
     }
 };
